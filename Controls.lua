@@ -3,8 +3,9 @@
 _G.Controls = {}
 
 class "Controls" {
-    constructor = function(self, player)
+    constructor = function(self, player, game)
         self.player = player
+        self.game = game;
 
         local os = love.system.getOS()
         self.isMobile = (os == "Android" or os == "iOS")
@@ -28,35 +29,41 @@ class "Controls" {
         self.lastPlace = false
         self.lastRespawn = false
         self.lastSave = false
+        self.lastTileSelectTouch = false
+
+        self.tileSelectClicked = false;
+        self.tileSelectIdx = 1;
 
         self:layout()
     end;
 
     layout = function(self)
         local w, h = love.graphics.getDimensions()
-        self.dpadCenterX = w * 0.18
-        self.dpadCenterY = h * 0.65
-        self.actionBtnX = w * 0.95
-        local as = self.actionBtnSize
-        local gap = self.actionGap
-        self.actionBtnBuildY = h * 0.50
-        self.actionBtnJumpY  = self.actionBtnBuildY + as/2 + gap + as/2
-        self.actionBtnBreakY = self.actionBtnJumpY + as/2 + gap + as/2
+        self.dpadCenterX = w * 0.18;
+        self.dpadCenterY = h * 0.65;
+        self.actionBtnX = w * 0.95;
+        local as = self.actionBtnSize;
+        local gap = self.actionGap;
+        self.actionBtnBuildY = h * 0.50;
+        self.actionBtnJumpY  = self.actionBtnBuildY + as/2 + gap + as/2;
+        self.actionBtnBreakY = self.actionBtnJumpY + as/2 + gap + as/2;
 
-        local sbs = self.smallBtnSize
-        local sbGap = self.smallBtnGap
-        local margin = 8
-        self.smallBtnGroupX = w - 2 * sbs - sbGap - margin
-        self.smallBtnY = 40
+        local sbs = self.smallBtnSize;
+        local sbGap = self.smallBtnGap;
+        local margin = 8;
+        self.smallBtnGroupX = w - 3 * sbs - 2 * sbGap - margin;
+        self.smallBtnY = 40;
+
+        self.tileSelectArea = {x = 24, y = 24, w = 124, h = 124};
     end;
 
     isPointOverControl = function(self, x, y)
-        local s = self.btnSize
-        local cx, cy = self.dpadCenterX, self.dpadCenterY
-        local hs = s / 2
+        local s = self.btnSize;
+        local cx, cy = self.dpadCenterX, self.dpadCenterY;
+        local hs = s / 2;
 
         if x >= cx - hs and x <= cx + hs and y >= cy - hs and y <= cy + hs then
-            return true
+            return true;
         end
         -- up
         if x >= cx - hs and x <= cx + hs and y >= cy - hs*3 and y <= cy - hs then return true end
@@ -67,36 +74,42 @@ class "Controls" {
         -- right
         if x >= cx + hs and x <= cx + hs*3 and y >= cy - hs and y <= cy + hs then return true end
 
-        local ax = self.actionBtnX
-        local as = self.actionBtnSize
-        local ahs = as / 2
+        local ax = self.actionBtnX;
+        local as = self.actionBtnSize;
+        local ahs = as / 2;
         if x >= ax - ahs and x <= ax + ahs then
             if y >= self.actionBtnBuildY - ahs and y <= self.actionBtnBuildY + ahs then return true end
             if y >= self.actionBtnJumpY - ahs  and y <= self.actionBtnJumpY + ahs  then return true end
             if y >= self.actionBtnBreakY - ahs and y <= self.actionBtnBreakY + ahs then return true end
         end
 
-        local sbs = self.smallBtnSize
-        local gx = self.smallBtnGroupX
-        local gy = self.smallBtnY
+        local sbs = self.smallBtnSize;
+        local gx = self.smallBtnGroupX;
+        local gy = self.smallBtnY;
         if y >= gy and y <= gy + sbs then
             if x >= gx and x <= gx + sbs then return true end
             if x >= gx + sbs + self.smallBtnGap and x <= gx + 2*sbs + self.smallBtnGap then return true end
+            if x >= gx + 2*(sbs + self.smallBtnGap) and x <= gx + 3*sbs + 2*self.smallBtnGap then return true end
         end
-        return false
+
+        local ta = self.tileSelectArea;
+        if x >= ta.x and x <= ta.x + ta.w and y >= ta.y and y <= ta.y + ta.h then return true end
+        return false;
     end;
 
     pollInput = function(self, cameraTouchId)
         if not self.isMobile then
-            return
+            return;
         end
 
-        local moveX, moveY = 0, 0
-        local jump = false
-        local breakAction = false
-        local placeAction = false
-        local respawnAction = false
-        local saveAction = false
+        local moveX, moveY = 0, 0;
+        local jump = false;
+        local breakAction = false;
+        local placeAction = false;
+        local respawnAction = false;
+        local saveAction = false;
+        local zombieAction = false;
+        local tileSelectTouched = false;
 
         local function processPos(x, y)
             local cx, cy = self.dpadCenterX, self.dpadCenterY
@@ -126,15 +139,22 @@ class "Controls" {
                 end
             end
 
-            local sbs = self.smallBtnSize
-            local gx = self.smallBtnGroupX
-            local gy = self.smallBtnY
+            local sbs = self.smallBtnSize;
+            local gx = self.smallBtnGroupX;
+            local gy = self.smallBtnY;
             if y >= gy and y <= gy + sbs then
                 if x >= gx and x <= gx + sbs then
-                    respawnAction = true
+                    respawnAction = true;
                 elseif x >= gx + sbs + self.smallBtnGap and x <= gx + 2*sbs + self.smallBtnGap then
-                    saveAction = true
+                    saveAction = true;
+                elseif x >= gx + 2*(sbs + self.smallBtnGap) and x <= gx + 3*sbs + 2*self.smallBtnGap then
+                    zombieAction = true;
                 end
+            end
+
+            local ta = self.tileSelectArea;
+            if x >= ta.x and x <= ta.x + ta.w and y >= ta.y and y <= ta.y + ta.h then
+                tileSelectTouched = true;
             end
         end
 
@@ -161,16 +181,30 @@ class "Controls" {
         local placePressed = placeAction and not self.lastPlace
         local respawnPressed = respawnAction and not self.lastRespawn
         local savePressed = saveAction and not self.lastSave
+        local zombiePressed = zombieAction and not self.lastZombie
 
         self.player.touchBreak = breakPressed
         self.player.touchPlace = placePressed
         self.player.touchRespawn = respawnPressed
         self.player.touchSave = savePressed
+        self.player.touchZombie = zombiePressed
 
         self.lastBreak = breakAction
         self.lastPlace = placeAction
         self.lastRespawn = respawnAction
         self.lastSave = saveAction
+        self.lastZombie = zombieAction
+
+        if tileSelectTouched and not self.lastTileSelectTouch then
+            self.tileSelectClicked = true
+        elseif not tileSelectTouched and self.lastTileSelectTouch then
+            self.tileSelectClicked = false
+            self.tileSelectIdx = self.tileSelectIdx % 3 + 1
+            --  1 = Tile.rock.id, 2 = Tile.dirt.id, 3 = Tile.planks.id
+            local tileMap = { [1] = Tile.rock.id, [2] = Tile.dirt.id, [3] = Tile.planks.id }
+            self.game.selectedTile = tileMap[self.tileSelectIdx]
+        end
+        self.lastTileSelectTouch = tileSelectTouched
     end;
 
     render = function(self)
@@ -236,6 +270,7 @@ class "Controls" {
         local gy = self.smallBtnY
         drawTextButton(gx, gy, sbs, sbs, "R")
         drawTextButton(gx + sbs + self.smallBtnGap, gy, sbs, sbs, "S")
+        drawTextButton(gx + 2*(sbs + self.smallBtnGap), gy, sbs, sbs, "Z")
 
         love.graphics.pop()
     end;

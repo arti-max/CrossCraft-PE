@@ -1,18 +1,46 @@
 -- phys/aabb.lua
 
+---@class AABB
+---@field min table { x: number, y: number, z: number }
+---@field max table { x: number, y: number, z: number }
+---@field new function
+---@field clone fun(self: AABB): AABB
+---@field expand fun(self: AABB, x: number, y: number, z: number): AABB
+---@field grow fun(self: AABB, x: number, y: number, z: number): AABB
+---@field intersects fun(self: AABB, other: AABB): boolean
+---@field move fun(self: AABB, dx: number, dy: number, dz: number)
+---@field offset fun(self: AABB, dx: number, dy: number, dz: number): AABB
+---@field clipXCollide fun(self: AABB, other: AABB, x: number): number
+---@field clipYCollide fun(self: AABB, other: AABB, y: number): number
+---@field clipZCollide fun(self: AABB, other: AABB, z: number): number
+---@field resolveCollision fun(self: AABB, staticAABB: AABB): number, number, number
 _G.AABB = {}
 
 class "AABB" {
+    ---@param self AABB
+    ---@param x0 number
+    ---@param y0 number
+    ---@param z0 number
+    ---@param x1 number
+    ---@param y1 number
+    ---@param z1 number
     constructor = function(self, x0, y0, z0, x1, y1, z1)
         self.min = {x = x0, y = y0, z = z0}
         self.max = {x = x1, y = y1, z = z1}
     end;
 
+    ---@param self AABB
+    ---@return AABB
     clone = function(self)
         return AABB.new(self.min.x, self.min.y, self.min.z,
                         self.max.x, self.max.y, self.max.z)
     end;
 
+    ---@param self AABB
+    ---@param x number
+    ---@param y number
+    ---@param z number
+    ---@return AABB
     expand = function(self, x, y, z)
         local minX, minY, minZ = self.min.x, self.min.y, self.min.z
         local maxX, maxY, maxZ = self.max.x, self.max.y, self.max.z
@@ -24,6 +52,11 @@ class "AABB" {
         return AABB.new(minX, minY, minZ, maxX, maxY, maxZ)
     end;
 
+    ---@param self AABB
+    ---@param x number
+    ---@param y number
+    ---@param z number
+    ---@return AABB
     grow = function(self, x, y, z)
         return AABB.new(
             self.min.x - x, self.min.y - y, self.min.z - z,
@@ -31,12 +64,19 @@ class "AABB" {
         )
     end;
 
+    ---@param self AABB
+    ---@param other AABB
+    ---@return boolean
     intersects = function(self, other)
         return (self.min.x < other.max.x and self.max.x > other.min.x) and
                (self.min.y < other.max.y and self.max.y > other.min.y) and
                (self.min.z < other.max.z and self.max.z > other.min.z)
     end;
 
+    ---@param self AABB
+    ---@param dx number
+    ---@param dy number
+    ---@param dz number
     move = function(self, dx, dy, dz)
         self.min.x = self.min.x + dx
         self.min.y = self.min.y + dy
@@ -46,6 +86,11 @@ class "AABB" {
         self.max.z = self.max.z + dz
     end;
 
+    ---@param self AABB
+    ---@param dx number
+    ---@param dy number
+    ---@param dz number
+    ---@return AABB
     offset = function(self, dx, dy, dz)
         return AABB.new(
             self.min.x + dx, self.min.y + dy, self.min.z + dz,
@@ -53,6 +98,10 @@ class "AABB" {
         )
     end;
 
+    ---@param self AABB
+    ---@param other AABB
+    ---@param x number
+    ---@return number
     clipXCollide = function(self, other, x)
         if other.max.y <= self.min.y or other.min.y >= self.max.y then return x end
         if other.max.z <= self.min.z or other.min.z >= self.max.z then return x end
@@ -67,6 +116,10 @@ class "AABB" {
         return x
     end;
 
+    ---@param self AABB
+    ---@param other AABB
+    ---@param y number
+    ---@return number
     clipYCollide = function(self, other, y)
         if other.max.x <= self.min.x or other.min.x >= self.max.x then return y end
         if other.max.z <= self.min.z or other.min.z >= self.max.z then return y end
@@ -81,6 +134,10 @@ class "AABB" {
         return y
     end;
 
+    ---@param self AABB
+    ---@param other AABB
+    ---@param z number
+    ---@return number
     clipZCollide = function(self, other, z)
         if other.max.x <= self.min.x or other.min.x >= self.max.x then return z end
         if other.max.y <= self.min.y or other.min.y >= self.max.y then return z end
@@ -95,6 +152,11 @@ class "AABB" {
         return z
     end;
 
+    ---@param self AABB
+    ---@param staticAABB AABB
+    ---@return number dx
+    ---@return number dy
+    ---@return number dz
     resolveCollision = function(self, staticAABB)
         local dx = 0
         if self.max.x > staticAABB.min.x and self.min.x < staticAABB.min.x then

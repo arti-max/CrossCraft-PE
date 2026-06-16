@@ -1,5 +1,12 @@
 -- level/Frustum.lua
 
+---@class Frustum
+---@field normalizePlane fun(self: Frustum, frustum: table, side: number)
+---@field calculateFrustum fun(self: Frustum)
+---@field pointInFrustum fun(self: Frustum, x: number, y: number, z: number): boolean
+---@field sphereInFrustum fun(self: Frustum, x: number, y: number, z: number, radius: number): boolean
+---@field cubeInFrustum fun(self: Frustum, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean
+---@field cubeInFrustumAABB fun(self: Frustum, aabb: AABB): boolean
 _G.Frustum = {
     RIGHT  = 0,
     LEFT   = 1,
@@ -11,16 +18,14 @@ _G.Frustum = {
     A = 1, B = 2, C = 3, D = 4
 }
 
-local Frustum = _G.Frustum;
-
 local m_Frustum = {}
 for i = 0, 5 do
     m_Frustum[i] = {0, 0, 0, 0}
 end
 
-
 local instance = nil
 
+---@return Frustum
 function Frustum.getInstance()
     if not instance then
         instance = setmetatable({}, { __index = Frustum })
@@ -28,6 +33,9 @@ function Frustum.getInstance()
     return instance
 end
 
+---@param self Frustum
+---@param frustum table
+---@param side number
 function Frustum:normalizePlane(frustum, side)
     local plane = frustum[side]
     local a, b, c = plane[Frustum.A], plane[Frustum.B], plane[Frustum.C]
@@ -40,6 +48,7 @@ function Frustum:normalizePlane(frustum, side)
     end
 end
 
+---@param self Frustum
 function Frustum:calculateFrustum()
     local proj = {}
     local modl = {}

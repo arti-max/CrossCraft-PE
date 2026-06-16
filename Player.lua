@@ -1,25 +1,29 @@
 -- Player.lua
 
+---@class Player : Entity
+---@field useTouch boolean
+---@field touchMoveX number
+---@field touchMoveY number
+---@field touchJump boolean
+---@field touchRespawn boolean
+---@field touchSave boolean
+---@field touchBreak boolean
+---@field touchPlace boolean
+---@field prevTouchBreak boolean
+---@field prevTouchPlace boolean
+---@field prevKeyBreak boolean
+---@field prevKeyPlace boolean
+---@field _super any
+---@field new fun(level: Level): Player
+
 _G.Player = {}
 
-class "Player" {
+class "Player" "extends" "Entity" {
     
-    constructor = function (self, level)
-        self.level = level;
-        self.heightOffset = 1.62;
-        self.x = 0;
-        self.y = 0;
-        self.z = 0;
-        self.xo = 0;
-        self.yo = 0;
-        self.zo = 0;
-        self.dx = 0;
-        self.dy = 0;
-        self.dz = 0;
-        self.xRot = 0;
-        self.yRot = 0;
-        self.grounded = false;
-        self.aabb = nil;
+    ---@param self Player
+    ---@param level Level
+    constructor = function(self, level)
+        self._super.constructor(self, level);
         -- for mobile:
         self.useTouch = false;
         self.touchMoveX = 0;
@@ -27,6 +31,7 @@ class "Player" {
         self.touchJump = false;
         self.touchRespawn = false;
         self.touchSave = false;
+        self.touchZombie = false;
         
         -- break/place
         self.touchBreak = false;
@@ -35,44 +40,11 @@ class "Player" {
         self.prevTouchPlace = false;
         self.prevKeyBreak = false;
         self.prevKeyPlace = false;
-        
-
-        self:resetPosition();
     end;
 
 
-    setPosition = function (self, x, y, z)
-        self.x = x;
-        self.y = y;
-        self.z = z;
-
-        -- player size
-        local width = 0.3;
-        local height = 0.9;
-
-        self.aabb = AABB.new(x - width, y - height, z - width, x + width, y + height, z + width);
-    end;
-
-    resetPosition = function(self)
-        local x = math.random() * self.level.width;
-        local y = self.level.depth + 3;
-        local z = math.random() * self.level.height;
-
-        self:setPosition(x, y, z);
-    end;
-
-    turn = function (self, x, y)
-        self.yRot = self.yRot + x * tonumber(UP.vars["Sensetivity"]);
-        self.xRot = self.xRot - y * tonumber(UP.vars["Sensetivity"]);
-
-        self.xRot = math.max(-90.0, self.xRot);
-        self.xRot = math.min(90.0, self.xRot);
-    end;
-
-    tick = function (self)
-        self.xo = self.x;
-        self.yo = self.y;
-        self.zo = self.z;
+    tick = function(self)
+        self._super.tick(self);
 
         local xx = 0;
         local yy = 0;
@@ -148,56 +120,9 @@ class "Player" {
             self.prevKeyBreak = keyBreak;
             self.prevKeyPlace = keyPlace;
         end
-    end;
-
-    move = function (self, x, y, z)
-        local xo = x;
-        local yo = y;
-        local zo = z;
-
-        local aabbs = self.level:getCubes(self.aabb:expand(x, y, z));
-
-        for _, abb in ipairs(aabbs) do
-            y = abb:clipYCollide(self.aabb, y);
-        end
-        self.aabb:move(0, y, 0);
-
-        for _, abb in ipairs(aabbs) do
-            x = abb:clipXCollide(self.aabb, x);
-        end
-        self.aabb:move(x, 0, 0);
-
-        for _, abb in ipairs(aabbs) do
-            z = abb:clipZCollide(self.aabb, z);
-        end
-        self.aabb:move(0, 0, z);
-
-        self.grounded = (yo ~= y) and (yo < 0);
-
-        if x ~= xo then self.dx = 0 end;
-        if y ~= yo then self.dy = 0 end;
-        if z ~= zo then self.dz = 0 end;
-
-        self.x = (self.aabb.min.x + self.aabb.max.x) / 2;
-        self.y = self.aabb.min.y + self.heightOffset;
-        self.z = (self.aabb.min.z + self.aabb.max.z) / 2;
-    end;
-
-    moveRelative = function(self, x, z, speed)
-        local dist = x*x + z*z;
-
-        if (dist < 0.01) then
-            return;
-        end
-
-        dist = speed / math.sqrt(dist);
-        x = x * dist;
-        z = z * dist;
-
-        local sin = math.sin(math.rad(self.yRot));
-        local cos = math.cos(math.rad(self.yRot));
-
-        self.dx = self.dx + (x * cos - z * sin);
-        self.dz = self.dz + (z * cos + x * sin);
-    end;
+    end
 }
+
+if not Player then
+    dbg.error("Player class error");
+end

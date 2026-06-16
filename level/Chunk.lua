@@ -1,11 +1,28 @@
 -- level/Chunk.lua
 
+---@class Chunk
+---@field level Level
+---@field aabb AABB|nil
+---@field x0 number
+---@field y0 number
+---@field z0 number
+---@field x1 number
+---@field y1 number
+---@field z1 number
+---@field dirty boolean
+---@field lists number
+---@field renderer Render
+---@field rebuild fun(self: Chunk, layer: number)
+---@field render fun(self: Chunk, layer: number)
+---@field setDirty fun(self: Chunk)
+---@field new fun(level: Level, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): Chunk
 _G.Chunk = {};
 
 class "Chunk" {
     __staticinit = function (self)
         self.updates = 0;
         self.rebuiltThisFrame = 0;
+        ---@type Render
         self.renderer = Render.new();
     end;
 
@@ -28,7 +45,7 @@ class "Chunk" {
     end;
 
     rebuild = function(self, layer)
-        if not terrainTex then return end
+        if not _G.textures.terrainTex then return end
         
         if (Chunk.rebuiltThisFrame == 4) then
             return;
@@ -50,7 +67,7 @@ class "Chunk" {
 
         c_glNewList(self.lists + layer, GL_COMPILE);
         c_glEnable(GL_TEXTURE_2D);
-        c_glBindTexture(GL_TEXTURE_2D, terrainTex);
+        c_glBindTexture(GL_TEXTURE_2D, textures.terrainTex);
         Chunk.renderer:begin();
 
         local x0, x1 = self.x0, self.x1 - 1
@@ -60,12 +77,9 @@ class "Chunk" {
         for x = x0, x1 do
             for y = y0, y1 do
                 for z = z0, z1 do
-                    if (level:getTile(x, y, z) == 1) then
-                        if (y == depthLimit) then
-                            Tile.grass:render(renderer, level, x, y, z, layer);
-                        else
-                            Tile.rock:render(renderer, level, x, y, z, layer);
-                        end
+                    local id = level:getTile(x, y, z);
+                    if (id > 0) then
+                        Tile.tiles[id]:render(renderer, level, x, y, z, layer);
                     end
                 end
             end

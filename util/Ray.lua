@@ -100,7 +100,7 @@ class "Ray" {
                 local tile = Tile.tiles[tileId]
                 if tile and tile.mayPick then
                     return {
-                        type = 0,   -- 0 = блок
+                        type = 0,
                         x = blockX,
                         y = blockY,
                         z = blockZ,

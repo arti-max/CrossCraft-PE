@@ -1,5 +1,20 @@
 -- level/levelRender.lua
 
+---@class LevelRender
+---@field level Level
+---@field CHUNK_SIZE number
+---@field chunks table<number, Chunk>
+---@field chunkAmountX number
+---@field chunkAmountY number
+---@field chunkAmountZ number
+---@field renderer Render
+---@field updateQueue table
+---@field render fun(self: LevelRender, layer: number)
+---@field setDirty fun(self: LevelRender, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number)
+---@field renderHit fun(self: LevelRender, hit: table)
+---@field tileChanged fun(self: LevelRender, x: number, y: number, z: number)
+---@field lightChanged fun(self: LevelRender, x: number, z: number, x0: number, y1: number)
+---@field new fun(level: Level): LevelRender
 _G.LevelRender = {};
 
 class "LevelRender" {

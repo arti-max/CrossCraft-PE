@@ -280,11 +280,27 @@ function glGetFloat(pname, out)
 end
 
 function glClear(mask)
-    local r, g, b, a = unpack(clearColor)
-    local clearDepth = bit.band(mask, GL_DEPTH_BUFFER_BIT) ~= 0
-    local ok, err = pcall(love.graphics.clear, r, g, b, a, clearDepth and clearDepthValue or nil)
+    local wantColor = (bit.band(mask, GL_COLOR_BUFFER_BIT) ~= 0)
+    local wantDepth = (bit.band(mask, GL_DEPTH_BUFFER_BIT) ~= 0)
+
+    local r, g, b, a, depth = nil, nil, nil, nil, nil
+    if wantColor then
+        r, g, b, a = unpack(clearColor)
+    end
+    if wantDepth then
+        depth = clearDepthValue
+    end
+    
+    local ok = pcall(love.graphics.clear, r, g, b, a, nil, depth)
     if not ok then
-        pcall(love.graphics.clear, r, g, b, a)
+        pcall(love.graphics.clear,
+            wantColor and r or 0,
+            wantColor and g or 0,
+            wantColor and b or 0,
+            wantColor and a or 0,
+            nil,
+            wantDepth and depth or nil
+        )
     end
 end
 
@@ -656,6 +672,11 @@ function glCallList(listID)
     love.graphics.draw(list.mesh)
     
     love.graphics.setShader()
+end
+
+function glClearDisplayLists()
+    displayLists = {}
+    nextListID = 1
 end
 
 -- ==================== In Future ====================

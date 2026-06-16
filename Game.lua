@@ -1,6 +1,7 @@
 -- Game.lua
 
 _G.Game = {};
+_G.textures = {};
 
 class "Game" {
     constructor = function(self)
@@ -13,31 +14,59 @@ class "Game" {
         self.prevMouseX = 0;
         self.prevMouseY = 0;
         self.hitResult = nil;
+        self.fpsString = "";
+        self.zombies = {};
+        self.selectedTile = Tile.rock.id;
+        self.font = BitmapFont:new(UP.fileSaves.resolve("font.png"));
         dbg.setBreakAtError(true);
         dbg.setFadeTime(4);
-        dbg.setShowInfo(false);
     end;
 
     setup = function(self)
         dbg.info("Setup Enter")
-        self.width  = love.graphics.getWidth()
-        self.height = love.graphics.getHeight()
+        self.width  = love.graphics.getWidth();
+        self.height = love.graphics.getHeight();
 
-        love.window.setMode(self.width, self.height, {depth = 24, resizable = true})
+        love.window.setMode(self.width, self.height, {depth = 24, resizable = true});
 
+        self.width  = love.graphics.getWidth();
+        self.height = love.graphics.getHeight();
 
-        local atlasPath = UP.fileSaves.resolve('atlas.png')
+        glClearDisplayLists();
+
+        if _G.textures.terrainTex then
+            _G.textures.terrainTex:release();
+            _G.textures.terrainTex = nil;
+            collectgarbage();
+        end
+        local atlasPath = UP.fileSaves.resolve('atlas.png');
+        local charPath = UP.fileSaves.resolve('char.png');
+
+        dbg.info("[PATH]: " .. atlasPath);
         if atlasPath then
             local tex = love.graphics.newImage(atlasPath)
             if tex then
-                tex:setFilter("nearest", "nearest")
-                _G.terrainTex = tex
-                dbg("Atlas loaded from fileSaves!")
+                tex:setFilter("nearest", "nearest");
+                _G.textures.terrainTex = tex;
+                dbg("Atlas loaded from fileSaves!");
             else
-                dbg("Failed to create Image from atlas.png")
+                dbg.error("Failed to create Image from atlas.png");
             end
         else
-            dbg("atlas.png not found in fileSaves")
+            dbg.error("atlas.png not found in fileSaves");
+        end
+
+        if charPath then
+            local tex = love.graphics.newImage(charPath)
+            if tex then
+                tex:setFilter("nearest", "nearest");
+                _G.textures.char = tex;
+                dbg("Char loaded from fileSaves!");
+            else
+                dbg.error("Failed to create Image from char.png");
+            end
+        else
+            dbg.error("char.png not found in fileSaves");
         end
 
         self.fogColor = {
@@ -62,7 +91,13 @@ class "Game" {
         self.levelRender = LevelRender.new(self.level);
         self.player = Player.new(self.level);
 
-        self.controls = Controls.new(self.player);
+        self.controls = Controls.new(self.player, self);
+
+        for i = 1, 10 do
+            local zombie = Zombie.new(self.level, 128, 0, 129);
+            zombie:resetPosition();
+            table.insert(self.zombies, zombie);
+        end
 
         local game = self
         table.insert(_G.drawCallbacks, function()
@@ -90,8 +125,8 @@ class "Game" {
         self.frames=self.frames+1;
 
         while (love.timer.getTime() * 1000 >= self.lastTime + 1000) do
-            dbg(tostring(self.frames) .. " fps, " .. tostring(Chunk.updates));
-            
+            self.fpsString = tostring(self.frames) .. " fps, " .. tostring(Chunk.updates) .. " chunk updates";
+
             Chunk.updates = 0;
             self.lastTime = self.lastTime+1000;
             self.frames=0;
@@ -102,6 +137,17 @@ class "Game" {
         if love.keyboard.isDown("escape") then
             love.mouse.setRelativeMode(false);
         end
+
+        if love.keyboard.isDown("1") then
+            self.selectedTile = Tile.rock.id;
+        elseif love.keyboard.isDown("2") then
+            self.selectedTile = Tile.dirt.id;
+        elseif love.keyboard.isDown("3") then
+            self.selectedTile = Tile.planks.id;
+        elseif love.keyboard.isDown("G") then
+            table.insert(self.zombies, Zombie.new(self.level, self.player.x, self.player.y, self.player.z));
+        end
+
         if self.player.touchRespawn then
             self.player:resetPosition();
             self.player.touchRespawn = false;
@@ -110,7 +156,21 @@ class "Game" {
             self.level:save();
             self.player.touchSave = false;
         end
+        if self.player.touchZombie then
+            table.insert(self.zombies, Zombie.new(self.level, self.player.x, self.player.y, self.player.z));
+            self.player.touchZombie = false;
+        end
+
+        self.level:tick();
         self.player:tick();
+
+        for i = #self.zombies, 1, -1 do
+            local zombie = self.zombies[i]
+            zombie:tick()
+            if zombie.removed then
+                table.remove(self.zombies, i)
+            end
+        end
         
     end;
 
@@ -143,11 +203,12 @@ class "Game" {
                 if (self.hitResult.face == 5) then z=z+1 end;
                 if (self.hitResult.face == 6) then z=z-1 end;
 
-                self.level:setTile(x, y, z, 1);
+                self.level:setTile(x, y, z, self.selectedTile);
             end
             self.player.touchPlace = false;
         end
 
+        local frustum = Frustum.getFrustum();
 
         glEnable(GL_FOG);
         glFogi(GL_FOG_MODE, GL_LINEAR);
@@ -158,9 +219,21 @@ class "Game" {
 
         self.levelRender:render(0);
 
+        for _, zombie in ipairs(self.zombies) do
+            if (zombie:isLit() and frustum:cubeInFrustumAABB(zombie.aabb)) then
+                zombie:render(partialTicks);
+            end
+        end
+
         glEnable(GL_FOG);
 
         self.levelRender:render(1);
+
+        for _, zombie in ipairs(self.zombies) do
+            if (zombie:isLit() == false and frustum:cubeInFrustumAABB(zombie.aabb)) then
+                zombie:render(partialTicks);
+            end
+        end
 
         glDisable(GL_FOG);
         glDisable(GL_TEXTURE_2D);
@@ -175,33 +248,56 @@ class "Game" {
         glLoadIdentity();
 
 
-        local swidth = self.width * 240 / self.height;
-        local sheight = self.height * 240 / self.height;
-        glClear(GL_DEPTH_BUFFER_BIT);
+        local swidth = math.floor(self.width * 240 / self.height)+16;
+        local sheight = math.floor(self.height * 240 / self.height);
+        
+        glDisable(GL_DEPTH_TEST);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0.0, swidth, sheight, 0.0, 100.0, 300.0);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
         glTranslatef(0, 0, -200);
+    
         glPushMatrix();
+        glTranslatef(32+6 + ((1-1)*32+6), 0, -50);
+        glTranslatef(0, -16, 0);
         glScalef(16, 16, 16);
         glRotatef(-30, 1, 0, 0);
         glRotatef(45.0, 0, 1, 0);
+        glTranslatef(-1.5, 0.5, 0.5);
         glScalef(-1, -1, -1);
+        if self.controls.tileSelectClicked then
+            glTranslatef(0.5, -2+0.5, 0.5);
+            glScalef(1.2, 1.2, 1.2);
+            glTranslatef(-0.5, -(-2+0.5), -0.5);
+        end
         local renderer = Render.new();
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, _G.textures.terrainTex);
         renderer:begin();
-        Tile.rock:render(renderer, self.level, -1, -1, -1, 0);
+        if (Tile.tiles[self.selectedTile] ~= nil) then
+            Tile.tiles[self.selectedTile]:render(renderer, self.level, 0, -2, 0, 0);
+        end
         renderer:flush();
+        glDisable(GL_TEXTURE_2D);
         glPopMatrix();
 
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        love.graphics.push("all")
+        love.graphics.reset()
+        self.font:drawCentered(self.fpsString, love.graphics.getWidth()/2, 12, 0xFFFFFFFF);
+        love.graphics.pop();
+
         if self.controls then
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            glMatrixMode(GL_MODELVIEW);
-            glLoadIdentity();
             self.controls:render();
         end
+
+        glEnable(GL_DEPTH_TEST);
     end;
 
     raycast = function(self) 
