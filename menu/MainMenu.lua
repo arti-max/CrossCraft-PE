@@ -28,6 +28,22 @@ else
     love.window.setMode(initW, initH, {depth = 24, resizable = true})
 end
 
+local fileSavesRoot = nil
+if UP and UP.fileSaves and UP.fileSaves.resolve then
+    fileSavesRoot = UP.fileSaves.resolve("")
+end
+
+if fileSavesRoot then
+    local info = love.filesystem.getInfo(fileSavesRoot)
+    if not info then
+        love.filesystem.createDirectory(fileSavesRoot)
+        dbg.info("Created fileSaves dir: " .. fileSavesRoot)
+    end
+else
+    love.filesystem.createDirectory("fileSaves")
+    dbg.info("Created sandbox fileSaves dir")
+end
+
 local font = BitmapFont:new(UP.fileSaves.resolve("font.png"))
 
 local logoPath = UP.fileSaves.resolve('logo.png')
